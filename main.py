@@ -1,10 +1,12 @@
 from multiprocessing import Pipe, Process, connection
-from sensor import sensor_process
+
+from sensor import sensor_main
 from upgrade import update_and_restart
+
+sensor_processes = {}
 
 def master():
   sensor_conns = {}
-  sensor_processes = {}
 
   def start_sensor(name, target_fn):
     parent_conn, child_conn = Pipe()
@@ -14,8 +16,8 @@ def master():
     sensor_processes[name] = p
 
   # Start sensors
-  start_sensor('sensor_a', sensor_process)
-  start_sensor('sensor_b', sensor_process)
+  start_sensor('sensor_a', sensor_main)
+  start_sensor('sensor_b', sensor_main)
 
   sensor_data = {}
 
@@ -34,7 +36,7 @@ def master():
         conn.close()
         sensor_conns.pop(sensor_name)
 
-        start_sensor(sensor_name, sensor_process)
+        start_sensor(sensor_name, sensor_main)
         continue
 
       if msg['type'] == 'update':
@@ -47,4 +49,10 @@ def master():
 
 if __name__ == '__main__':
   update_and_restart()
-  master()
+  try:
+    master()
+  except KeyboardInterrupt:
+    print("", end="\r")
+    print("Shutting down...")
+    for p in sensor_processes.values():
+      p.terminate()
